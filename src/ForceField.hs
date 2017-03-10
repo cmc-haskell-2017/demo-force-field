@@ -5,16 +5,18 @@ import Graphics.Gloss.Interface.Pure.Simulate
 import Graphics.Gloss.Data.Vector
 
 -- | Запустить демонстрацию.
-demo :: IO ()
-demo = simulate display bgColor fps universe drawUniverse updateUniverse
+demo :: [Body] -> IO ()
+demo bodies = simulate display bgColor fps (initUniverse bodies) drawUniverse updateUniverse
   where
     display = InWindow "Flappy Lambda" (screenWidth, screenHeight) (200, 200)
     bgColor = black   -- цвет фона
     fps     = 240     -- кол-во кадров в секунду
 
-    universe = initUniverse bodies
-    bodies = [ sun1, sun2, earth1, moon1, earth2, moon2 ]
-
+-- | Солнечная система с двумя звёздами в центре и двумя планетами,
+-- у каждой из которых есть один спутник.
+sampleBinaryStarSystem :: [Body]
+sampleBinaryStarSystem = [ sun1, sun2, earth1, moon1, earth2, moon2 ]
+  where
     sun1  = orbitingAt ( 15, 0) (Body (5, 0) (0, 0) 12.5) 100
     sun2  = orbitingAt (-15, 0) (Body (5, 0) (0, 0) 25) 50
 
@@ -37,10 +39,11 @@ data Universe = Universe
 -- | Масса.
 type Mass = Float
 
+-- | Тело (например, звезда или планета).
 data Body = Body
-  { bodyPosition :: Point
-  , bodyVelocity :: Vector
-  , bodyMass     :: Mass
+  { bodyPosition :: Point   -- ^ Положение.
+  , bodyVelocity :: Vector  -- ^ Вектор скорости.
+  , bodyMass     :: Mass    -- ^ Масса.
   }
 
 -- | Несколько тел образуют систему тел с общей массой,
@@ -113,6 +116,7 @@ updateUniverse _ dt universe = initUniverse newBodies
     field  = universeField universe
     newBodies = map (updateBody dt field) bodies
 
+-- | Обновить тело, движущееся в заданном силовом поле.
 updateBody :: Float -> Field -> Body -> Body
 updateBody dt (Field f) body = body
   { bodyPosition = bodyPosition body + mulSV dt (bodyVelocity body)
