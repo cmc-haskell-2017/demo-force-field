@@ -1,6 +1,5 @@
 module ForceField where
 
-import Data.Monoid
 import Graphics.Gloss.Interface.Pure.Simulate
 import Graphics.Gloss.Data.Vector
 
@@ -10,21 +9,18 @@ demo bodies = simulate display bgColor fps (initUniverse bodies) drawUniverse up
   where
     display = InWindow "Flappy Lambda" (screenWidth, screenHeight) (200, 200)
     bgColor = black   -- цвет фона
-    fps     = 240     -- кол-во кадров в секунду
+    fps     = 300     -- кол-во кадров в секунду
 
--- | Солнечная система с двумя звёздами в центре и двумя планетами,
--- у каждой из которых есть один спутник.
-sampleBinaryStarSystem :: [Body]
-sampleBinaryStarSystem = [ sun1, sun2, earth1, moon1, earth2, moon2 ]
+-- | Солнечная система c планетами.
+sampleStarSystem :: [Body]
+sampleStarSystem = [ sun, mercury, venus, earth, moon ]
   where
-    sun1  = orbitingAt ( 15, 0) (Body (5, 0) (0, 0) 12.5) 100
-    sun2  = orbitingAt (-15, 0) (Body (5, 0) (0, 0) 25) 50
+    sun = Body (-100, 0) (0, 10) 100000
 
-    earth1 = orbitingAt (100, 150) (sun1 <> sun2) 10
-    moon1  = orbitingAt (5, 10) earth1 1
-
-    earth2 = orbitingAt (-200, 0) (sun1 <> sun2) 15
-    moon2  = orbitingAt (-5, -10) earth2 2
+    mercury = orbitingAt (-30, 0)  sun 1000
+    venus   = orbitingAt (0, 150)  sun 3000
+    earth   = orbitingAt (370, -50) sun 20000
+    moon    = orbitingAt (0, 25) earth 500
 
     orbitingAt pos body mass = Body point (orbitVelocity body point) mass
       where
@@ -32,8 +28,8 @@ sampleBinaryStarSystem = [ sun1, sun2, earth1, moon1, earth2, moon2 ]
 
 -- | Модель вселенной.
 data Universe = Universe
-  { universeBodies :: [Body]
-  , universeField  :: Field
+  { universeBodies :: [Body]  -- ^ Тела во вселенной.
+  , universeField  :: Field   -- ^ Силовое поле, построенное по телам.
   }
 
 -- | Масса.
@@ -45,16 +41,6 @@ data Body = Body
   , bodyVelocity :: Vector  -- ^ Вектор скорости.
   , bodyMass     :: Mass    -- ^ Масса.
   }
-
--- | Несколько тел образуют систему тел с общей массой,
--- положением центра масс и скоростью центра масс.
-instance Monoid Body where
-  mempty = Body (0, 0) (0, 0) 0
-  mappend (Body p1 v1 m1) (Body p2 v2 m2) = Body p v m
-    where
-      m = m1 + m2
-      p = mulSV (1 / m) (mulSV m1 p1 + mulSV m2 p2)
-      v = mulSV (1 / m) (mulSV m1 v1 + mulSV m2 v2)
 
 -- | Векторное поле.
 newtype Field = Field { getField :: Point -> Vector }
@@ -99,14 +85,46 @@ initUniverse bodies = Universe
 -- | Отобразить вселенную.
 drawUniverse :: Universe -> Picture
 drawUniverse universe = mconcat
-  [ mconcat (fmap drawBody (universeBodies universe)) ]
+  [ drawField 30 (universeField universe)
+  , mconcat (fmap drawBody (universeBodies universe))
+  ]
 
 -- | Отобразить одно тело.
 drawBody :: Body -> Picture
 drawBody body = translate x y (color white (thickCircle (r/2) r))
   where
     (x, y) = bodyPosition body
-    r = sqrt (bodyMass body)
+    r = bodyMass body ** 0.3
+
+drawField :: Float -> Field -> Picture
+drawField d field = mconcat (map (drawFieldAtPoint d field) points)
+  where
+    points =
+      [ (x - w/2, y - h/2)
+      | x <- [0, d .. w]
+      , y <- [0, d .. h]
+      ]
+    w = screenWidth
+    h = screenHeight
+
+drawFieldAtPoint :: Float -> Field -> Point -> Picture
+drawFieldAtPoint d (Field f) (x, y) = color c (translate x y (scale s s (rotate theta arrow)))
+  where
+    c = makeColor m 0 (1 - m) 1
+    s = 0.7 * d * m
+    v = f (x, y)
+    theta = angleVV (1, 0) v * 180/pi
+    m = 1 - exp (log 0.5 * magV v / mediumAccel)
+
+arrow :: Picture
+arrow = mconcat
+  [ polygon [ (0, w), (1 - hl, w), (1 - hl, -w), (0, -w) ]
+  , polygon [ (1 - hl, hw), (1, 0), (1 - hl, -hw) ]
+  ]
+  where
+    w  = 0.05 -- полширины стрелки
+    hw = 0.2  -- полширины головы стрелки
+    hl = 0.4  -- длина головы стрелки
 
 -- | Обновить состояние вселенной.
 updateUniverse :: ViewPort -> Float -> Universe -> Universe
@@ -125,12 +143,17 @@ updateBody dt (Field f) body = body
 
 -- | Гравитационная постоянная.
 bigG :: Float
-bigG = 500
+bigG = 10
+
+-- | Абсолютное значение ускорения, которое считается средним.
+-- Это значение используется для калиброки визуализации.
+mediumAccel :: Float
+mediumAccel = magV (accel (Body (0, 0) (0, 0) 20000) (100, 0))
 
 -- | Ширина экрана.
 screenWidth :: Num a => a
-screenWidth = 500
+screenWidth = 800
 
 -- | Высота экрана.
 screenHeight :: Num a => a
-screenHeight = 500
+screenHeight = 800
