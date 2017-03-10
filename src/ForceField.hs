@@ -13,13 +13,12 @@ demo bodies = simulate display bgColor fps (initUniverse bodies) drawUniverse up
 
 -- | Солнечная система c планетами.
 sampleStarSystem :: [Body]
-sampleStarSystem = [ sun, mercury, venus, earth, moon ]
+sampleStarSystem = [ sun, venus, earth, moon ]
   where
-    sun = Body (-100, 0) (0, 10) 100000
+    sun = Body (-100, 0) (-5, 5) 100000
 
-    mercury = orbitingAt (-30, 0)  sun 1000
-    venus   = orbitingAt (0, 150)  sun 3000
-    earth   = orbitingAt (370, -50) sun 20000
+    venus   = orbitingAt (0, 50)  sun 10000
+    earth   = orbitingAt (370, -50) sun 30000
     moon    = orbitingAt (0, 25) earth 500
 
     orbitingAt pos body mass = Body point (orbitVelocity body point) mass
@@ -85,7 +84,7 @@ initUniverse bodies = Universe
 -- | Отобразить вселенную.
 drawUniverse :: Universe -> Picture
 drawUniverse universe = mconcat
-  [ drawField 30 (universeField universe)
+  [ drawField 40 (universeField universe)
   , mconcat (fmap drawBody (universeBodies universe))
   ]
 
@@ -113,8 +112,13 @@ drawFieldAtPoint d (Field f) (x, y) = color c (translate x y (scale s s (rotate 
     c = makeColor m 0 (1 - m) 1
     s = 0.7 * d * m
     v = f (x, y)
-    theta = angleVV (1, 0) v * 180/pi
+    theta = angle (1, 0) v * 180/pi
     m = 1 - exp (log 0.5 * magV v / mediumAccel)
+
+angle :: Vector -> Vector -> Float
+angle v1 v2 = - atan2 y x
+  where
+    (x, y) = v2 - v1
 
 arrow :: Picture
 arrow = mconcat
@@ -143,7 +147,7 @@ updateBody dt (Field f) body = body
 
 -- | Гравитационная постоянная.
 bigG :: Float
-bigG = 10
+bigG = 4
 
 -- | Абсолютное значение ускорения, которое считается средним.
 -- Это значение используется для калиброки визуализации.
