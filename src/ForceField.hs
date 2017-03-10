@@ -15,11 +15,11 @@ demo bodies = simulate display bgColor fps (initUniverse bodies) drawUniverse up
 sampleStarSystem :: [Body]
 sampleStarSystem = [ sun, venus, earth, moon ]
   where
-    sun = Body (-100, 0) (-5, 5) 100000
+    sun = Body (-500, 0) (5, 10) 200000
 
-    venus   = orbitingAt (0, 50)  sun 10000
-    earth   = orbitingAt (370, -50) sun 30000
-    moon    = orbitingAt (0, 25) earth 500
+    venus   = orbitingAt (-50, 120)  sun 5000
+    earth   = orbitingAt (370, -50) sun 50000
+    moon    = orbitingAt (0, 50) earth 500
 
     orbitingAt pos body mass = Body point (orbitVelocity body point) mass
       where
@@ -84,7 +84,7 @@ initUniverse bodies = Universe
 -- | Отобразить вселенную.
 drawUniverse :: Universe -> Picture
 drawUniverse universe = mconcat
-  [ drawField 40 (universeField universe)
+  [ drawField 30 (universeField universe)
   , mconcat (fmap drawBody (universeBodies universe))
   ]
 
@@ -156,8 +156,8 @@ mediumAccel = magV (accel (Body (0, 0) (0, 0) 20000) (100, 0))
 
 -- | Ширина экрана.
 screenWidth :: Num a => a
-screenWidth = 800
+screenWidth = 1600
 
 -- | Высота экрана.
 screenHeight :: Num a => a
-screenHeight = 800
+screenHeight = 900
