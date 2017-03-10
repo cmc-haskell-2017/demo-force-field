@@ -1,11 +1,11 @@
 module ForceField where
 
-import Graphics.Gloss.Interface.Pure.Simulate
+import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Data.Vector
 
 -- | Запустить демонстрацию.
 demo :: [Body] -> IO ()
-demo bodies = simulate display bgColor fps (initUniverse bodies) drawUniverse updateUniverse
+demo bodies = play display bgColor fps (initUniverse bodies) drawUniverse handleUniverse updateUniverse
   where
     display = InWindow "Flappy Lambda" (screenWidth, screenHeight) (200, 200)
     bgColor = black   -- цвет фона
@@ -15,7 +15,7 @@ demo bodies = simulate display bgColor fps (initUniverse bodies) drawUniverse up
 sampleStarSystem :: [Body]
 sampleStarSystem = [ sun, venus, earth, moon ]
   where
-    sun = Body (-500, 0) (5, 10) 200000
+    sun = Body (-500, 0) (0, 10) 200000
 
     venus   = orbitingAt (-50, 120)  sun 5000
     earth   = orbitingAt (370, -50) sun 50000
@@ -27,8 +27,9 @@ sampleStarSystem = [ sun, venus, earth, moon ]
 
 -- | Модель вселенной.
 data Universe = Universe
-  { universeBodies :: [Body]  -- ^ Тела во вселенной.
-  , universeField  :: Field   -- ^ Силовое поле, построенное по телам.
+  { universeBodies    :: [Body]   -- ^ Тела во вселенной.
+  , universeField     :: Field    -- ^ Силовое поле, построенное по телам.
+  , universeArrowSize :: Float    -- ^ Размер стрелок векторов.
   }
 
 -- | Масса.
@@ -79,12 +80,13 @@ initUniverse :: [Body] -> Universe
 initUniverse bodies = Universe
   { universeBodies = bodies
   , universeField  = mconcat (map bodyField bodies)
+  , universeArrowSize = 0
   }
 
 -- | Отобразить вселенную.
 drawUniverse :: Universe -> Picture
 drawUniverse universe = mconcat
-  [ drawField 30 (universeField universe)
+  [ drawField 30 (universeArrowSize universe) (universeField universe)
   , mconcat (fmap drawBody (universeBodies universe))
   ]
 
@@ -95,22 +97,22 @@ drawBody body = translate x y (color white (thickCircle (r/2) r))
     (x, y) = bodyPosition body
     r = bodyMass body ** 0.3
 
-drawField :: Float -> Field -> Picture
-drawField d field = mconcat (map (drawFieldAtPoint d field) points)
+drawField :: Float -> Float -> Field -> Picture
+drawField cellSize arrowSize field = mconcat (map (drawFieldAtPoint (cellSize * arrowSize) field) points)
   where
     points =
       [ (x - w/2, y - h/2)
-      | x <- [0, d .. w]
-      , y <- [0, d .. h]
+      | x <- [0, cellSize .. w]
+      , y <- [0, cellSize .. h]
       ]
     w = screenWidth
     h = screenHeight
 
 drawFieldAtPoint :: Float -> Field -> Point -> Picture
-drawFieldAtPoint d (Field f) (x, y) = color c (translate x y (scale s s (rotate theta arrow)))
+drawFieldAtPoint arrowSize (Field f) (x, y) = color c (translate x y (scale s s (rotate theta arrow)))
   where
     c = makeColor m 0 (1 - m) 1
-    s = 0.7 * d * m
+    s = arrowSize * m
     v = f (x, y)
     theta = angle (1, 0) v * 180/pi
     m = 1 - exp (log 0.5 * magV v / mediumAccel)
@@ -130,13 +132,30 @@ arrow = mconcat
     hw = 0.2  -- полширины головы стрелки
     hl = 0.4  -- длина головы стрелки
 
--- | Обновить состояние вселенной.
-updateUniverse :: ViewPort -> Float -> Universe -> Universe
-updateUniverse _ dt universe = initUniverse newBodies
+handleUniverse :: Event -> Universe -> Universe
+handleUniverse (EventKey (SpecialKey KeySpace) Down _ _) = toggleField
+handleUniverse _ = id
+
+toggleField :: Universe -> Universe
+toggleField universe = universe { universeArrowSize = newArrowSize }
   where
-    bodies = universeBodies universe
-    field  = universeField universe
+    newArrowSize
+      | universeArrowSize universe == 0 = 0.01
+      | otherwise = 0
+
+-- | Обновить состояние вселенной.
+updateUniverse :: Float -> Universe -> Universe
+updateUniverse dt universe = (initUniverse newBodies)
+  { universeArrowSize = newArrowSize }
+  where
     newBodies = map (updateBody dt field) bodies
+    newArrowSize
+      | arrowSize == 0 = 0
+      | otherwise      = min 0.7 (arrowSize + dt * 0.8)
+
+    bodies    = universeBodies universe
+    field     = universeField universe
+    arrowSize = universeArrowSize universe
 
 -- | Обновить тело, движущееся в заданном силовом поле.
 updateBody :: Float -> Field -> Body -> Body
