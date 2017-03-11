@@ -7,7 +7,7 @@ import Graphics.Gloss.Data.Vector
 demo :: [Body] -> IO ()
 demo bodies = play display bgColor fps (initUniverse bodies) drawUniverse handleUniverse updateUniverse
   where
-    display = InWindow "Flappy Lambda" (screenWidth, screenHeight) (200, 200)
+    display = InWindow "Визуализация гравитационного поля" (screenWidth, screenHeight) (200, 200)
     bgColor = black   -- цвет фона
     fps     = 300     -- кол-во кадров в секунду
 
@@ -15,7 +15,7 @@ demo bodies = play display bgColor fps (initUniverse bodies) drawUniverse handle
 sampleStarSystem :: [Body]
 sampleStarSystem = [ sun, venus, earth, moon ]
   where
-    sun = Body (-500, 0) (0, 10) 200000
+    sun = Body (-100, 0) (0, 10) 200000
 
     venus   = orbitingAt (-50, 120)  sun 5000
     earth   = orbitingAt (370, -50) sun 50000
@@ -175,8 +175,8 @@ mediumAccel = magV (accel (Body (0, 0) (0, 0) 20000) (100, 0))
 
 -- | Ширина экрана.
 screenWidth :: Num a => a
-screenWidth = 1600
+screenWidth = 800
 
 -- | Высота экрана.
 screenHeight :: Num a => a
-screenHeight = 900
+screenHeight = 600
