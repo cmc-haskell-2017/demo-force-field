@@ -111,7 +111,7 @@ initUniverse bodies = Universe
 -- | Отобразить вселенную.
 drawUniverse :: Universe -> Picture
 drawUniverse universe = scaleToBounds (universeBounds universe) (mconcat
-  [ drawField 20 (universeBounds universe) (universeArrowSize universe) (universeField universe)
+  [ drawField 30 (universeBounds universe) (universeArrowSize universe) (universeField universe)
   , mconcat (fmap drawBody (universeBodies universe))
   ])
 
