@@ -29,6 +29,7 @@ sampleStarSystem = [ sun, venus, earth, moon ]
 data Universe = Universe
   { universeBodies    :: [Body]   -- ^ Тела во вселенной.
   , universeField     :: Field    -- ^ Силовое поле, построенное по телам.
+  , universeBounds    :: Bounds   -- ^ Границы моделирования.
   , universeArrowSize :: Float    -- ^ Размер стрелок векторов.
   }
 
@@ -49,6 +50,29 @@ newtype Field = Field { getField :: Point -> Vector }
 instance Monoid Field where
   mempty = Field (\_ -> (0, 0))
   mappend (Field f) (Field g) = Field (\p -> f p + g p)
+
+-- | Границы моделируемой области.
+data Bounds
+  = Unbounded                 -- ^ Неограниченное.
+  | Rectangular Point Point   -- ^ Прямоугольная область.
+
+-- | Определить границы области, захватывающей все тела.
+bounds :: [Body] -> Bounds
+bounds _ = Unbounded  -- реализуйте эту функцию самостоятельно
+
+-- | Привести пропорции границ моделирования к пропорциям экрана.
+-- Новая граница будет больше либо равна исходной по каждому измерению.
+toScreenProps :: Bounds -> Bounds
+toScreenProps Unbounded = Unbounded
+toScreenProps (Rectangular (l, b) (r, t))
+  | tooWide   = Rectangular (l, b') (r, t')
+  | otherwise = Rectangular (l', b) (r', t)
+  where
+    tooWide = (r - l) * screenHeight > (t - b) * screenWidth
+    l' = (r + l - (t - b) * screenWidth / screenHeight) / 2
+    r' = (r + l + (t - b) * screenWidth / screenHeight) / 2
+    b' = (t + b - (r - l) * screenHeight / screenWidth) / 2
+    t' = (t + b + (r - l) * screenHeight / screenWidth) / 2
 
 -- | Поле ускорения свободного падения, порождённое одним телом.
 bodyField :: Body -> Field
@@ -80,15 +104,28 @@ initUniverse :: [Body] -> Universe
 initUniverse bodies = Universe
   { universeBodies = bodies
   , universeField  = mconcat (map bodyField bodies)
+  , universeBounds = toScreenProps (bounds bodies)
   , universeArrowSize = 0
   }
 
 -- | Отобразить вселенную.
 drawUniverse :: Universe -> Picture
-drawUniverse universe = mconcat
-  [ drawField 30 (universeArrowSize universe) (universeField universe)
+drawUniverse universe = scaleToBounds (universeBounds universe) (mconcat
+  [ drawField 20 (universeBounds universe) (universeArrowSize universe) (universeField universe)
   , mconcat (fmap drawBody (universeBodies universe))
-  ]
+  ])
+
+-- | Масштабировать изображение таким образом,
+-- чтобы заданная область занимала весь экран.
+scaleToBounds :: Bounds -> Picture -> Picture
+scaleToBounds Unbounded = id
+scaleToBounds (Rectangular (l, b) (r, t))
+  = scale sx sy . translate dx dy
+  where
+    dx = - (l + r) / 2
+    dy = - (b + t) / 2
+    sx = screenWidth / (r - l)
+    sy = screenHeight / (t - b)
 
 -- | Отобразить одно тело.
 drawBody :: Body -> Picture
@@ -97,17 +134,20 @@ drawBody body = translate x y (color white (thickCircle (r/2) r))
     (x, y) = bodyPosition body
     r = bodyMass body ** 0.3
 
-drawField :: Float -> Float -> Field -> Picture
-drawField cellSize arrowSize field = mconcat (map (drawFieldAtPoint (cellSize * arrowSize) field) points)
+-- | Отобразить силовое поле.
+drawField :: Float -> Bounds -> Float -> Field -> Picture
+drawField cellSize boundary arrowSize field = mconcat (map (drawFieldAtPoint (cellSize * arrowSize) field) points)
   where
     points =
-      [ (x - w/2, y - h/2)
-      | x <- [0, cellSize .. w]
-      , y <- [0, cellSize .. h]
+      [ (x, y)
+      | x <- [l, l + cellSize .. r]
+      , y <- [b, b + cellSize .. t]
       ]
-    w = screenWidth
-    h = screenHeight
+    ((l, b), (r, t)) = case boundary of
+      Unbounded -> ((-screenWidth/2, -screenHeight/2), (screenWidth/2, screenHeight/2))
+      Rectangular lb rt -> (lb, rt)
 
+-- | Отобразить один вектор силового поля.
 drawFieldAtPoint :: Float -> Field -> Point -> Picture
 drawFieldAtPoint arrowSize (Field f) (x, y) = color c (translate x y (scale s s (rotate theta arrow)))
   where
@@ -117,25 +157,29 @@ drawFieldAtPoint arrowSize (Field f) (x, y) = color c (translate x y (scale s s 
     theta = angle (1, 0) v * 180/pi
     m = 1 - exp (log 0.5 * magV v / mediumAccel)
 
+-- | Угол между двумя векторами.
 angle :: Vector -> Vector -> Float
 angle v1 v2 = - atan2 y x
   where
     (x, y) = v2 - v1
 
+-- | Отобразить единичную стрелку.
 arrow :: Picture
 arrow = mconcat
-  [ polygon [ (0, w), (1 - hl, w), (1 - hl, -w), (0, -w) ]
-  , polygon [ (1 - hl, hw), (1, 0), (1 - hl, -hw) ]
+  [ polygon [ (0, w), (1 - hl, w), (1 - hl, -w), (0, -w) ]  -- стержень
+  , polygon [ (1 - hl, hw), (1, 0), (1 - hl, -hw) ]         -- голова
   ]
   where
     w  = 0.05 -- полширины стрелки
     hw = 0.2  -- полширины головы стрелки
     hl = 0.4  -- длина головы стрелки
 
+-- | Обработка событий.
 handleUniverse :: Event -> Universe -> Universe
 handleUniverse (EventKey (SpecialKey KeySpace) Down _ _) = toggleField
 handleUniverse _ = id
 
+-- | Переключить отображение силового поля.
 toggleField :: Universe -> Universe
 toggleField universe = universe { universeArrowSize = newArrowSize }
   where
