@@ -78,6 +78,10 @@ toScreenProps (Rectangular (l, b) (r, t))
 bodyField :: Body -> Field
 bodyField = Field . accel
 
+-- | Поле ускорения свободного падения, порождённое системой тел.
+systemField :: [Body] -> Field
+systemField = mconcat . map bodyField
+
 -- | Вычислить вектор ускорения, которое получает объект
 -- в заданной точке из-за взаимодействия с заданным телом.
 accel :: Body -> Point -> Vector
@@ -103,7 +107,7 @@ orbitVelocity body point = bodyVelocity body + v
 initUniverse :: [Body] -> Universe
 initUniverse bodies = Universe
   { universeBodies = bodies
-  , universeField  = mconcat (map bodyField bodies)
+  , universeField  = systemField bodies
   , universeBounds = toScreenProps (bounds bodies)
   , universeArrowSize = 0
   }
