@@ -25,6 +25,10 @@ sampleStarSystem = [ sun, venus, earth, moon ]
       where
         point = bodyPosition body + pos
 
+-- ==============================================
+-- Модель
+-- ==============================================
+
 -- | Модель вселенной.
 data Universe = Universe
   { universeBodies    :: [Body]   -- ^ Тела во вселенной.
@@ -60,19 +64,18 @@ data Bounds
 bounds :: [Body] -> Bounds
 bounds _ = Unbounded  -- реализуйте эту функцию самостоятельно
 
--- | Привести пропорции границ моделирования к пропорциям экрана.
--- Новая граница будет больше либо равна исходной по каждому измерению.
-toScreenProps :: Bounds -> Bounds
-toScreenProps Unbounded = Unbounded
-toScreenProps (Rectangular (l, b) (r, t))
-  | tooWide   = Rectangular (l, b') (r, t')
-  | otherwise = Rectangular (l', b) (r', t)
-  where
-    tooWide = (r - l) * screenHeight > (t - b) * screenWidth
-    l' = (r + l - (t - b) * screenWidth / screenHeight) / 2
-    r' = (r + l + (t - b) * screenWidth / screenHeight) / 2
-    b' = (t + b - (r - l) * screenHeight / screenWidth) / 2
-    t' = (t + b + (r - l) * screenHeight / screenWidth) / 2
+-- | Начальное состояние вселенной.
+initUniverse :: [Body] -> Universe
+initUniverse bodies = Universe
+  { universeBodies = bodies
+  , universeField  = systemField bodies
+  , universeBounds = toScreenProps (bounds bodies)
+  , universeArrowSize = 0
+  }
+
+-- ==============================================
+-- Физика
+-- ==============================================
 
 -- | Поле ускорения свободного падения, порождённое одним телом.
 bodyField :: Body -> Field
@@ -103,14 +106,9 @@ orbitVelocity body point = bodyVelocity body + v
     r = bodyPosition body - point
     n = normalizeV r
 
--- | Начальное состояние вселенной.
-initUniverse :: [Body] -> Universe
-initUniverse bodies = Universe
-  { universeBodies = bodies
-  , universeField  = systemField bodies
-  , universeBounds = toScreenProps (bounds bodies)
-  , universeArrowSize = 0
-  }
+-- ==============================================
+-- Отрисовка
+-- ==============================================
 
 -- | Отобразить вселенную.
 drawUniverse :: Universe -> Picture
@@ -118,18 +116,6 @@ drawUniverse universe = scaleToBounds (universeBounds universe) (mconcat
   [ drawField 30 (universeBounds universe) (universeArrowSize universe) (universeField universe)
   , mconcat (fmap drawBody (universeBodies universe))
   ])
-
--- | Масштабировать изображение таким образом,
--- чтобы заданная область занимала весь экран.
-scaleToBounds :: Bounds -> Picture -> Picture
-scaleToBounds Unbounded = id
-scaleToBounds (Rectangular (l, b) (r, t))
-  = scale sx sy . translate dx dy
-  where
-    dx = - (l + r) / 2
-    dy = - (b + t) / 2
-    sx = screenWidth / (r - l)
-    sy = screenHeight / (t - b)
 
 -- | Отобразить одно тело.
 drawBody :: Body -> Picture
@@ -178,6 +164,36 @@ arrow = mconcat
     hw = 0.2  -- полширины головы стрелки
     hl = 0.4  -- длина головы стрелки
 
+-- | Привести пропорции границ моделирования к пропорциям экрана.
+-- Новая граница будет больше либо равна исходной по каждому измерению.
+toScreenProps :: Bounds -> Bounds
+toScreenProps Unbounded = Unbounded
+toScreenProps (Rectangular (l, b) (r, t))
+  | tooWide   = Rectangular (l, b') (r, t')
+  | otherwise = Rectangular (l', b) (r', t)
+  where
+    tooWide = (r - l) * screenHeight > (t - b) * screenWidth
+    l' = (r + l - (t - b) * screenWidth / screenHeight) / 2
+    r' = (r + l + (t - b) * screenWidth / screenHeight) / 2
+    b' = (t + b - (r - l) * screenHeight / screenWidth) / 2
+    t' = (t + b + (r - l) * screenHeight / screenWidth) / 2
+
+-- | Масштабировать изображение таким образом,
+-- чтобы заданная область занимала весь экран.
+scaleToBounds :: Bounds -> Picture -> Picture
+scaleToBounds Unbounded = id
+scaleToBounds (Rectangular (l, b) (r, t))
+  = scale sx sy . translate dx dy
+  where
+    dx = - (l + r) / 2
+    dy = - (b + t) / 2
+    sx = screenWidth / (r - l)
+    sy = screenHeight / (t - b)
+
+-- ==============================================
+-- Обработка событий и обновление
+-- ==============================================
+
 -- | Обработка событий.
 handleUniverse :: Event -> Universe -> Universe
 handleUniverse (EventKey (SpecialKey KeySpace) Down _ _) = toggleField
@@ -211,6 +227,10 @@ updateBody dt (Field f) body = body
   { bodyPosition = bodyPosition body + mulSV dt (bodyVelocity body)
   , bodyVelocity = bodyVelocity body + mulSV dt (f (bodyPosition body))
   }
+
+-- ==============================================
+-- Константы и параметры моделирования
+-- ==============================================
 
 -- | Гравитационная постоянная.
 bigG :: Float
