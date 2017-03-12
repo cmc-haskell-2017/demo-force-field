@@ -29,6 +29,6 @@ stack build && stack exec demo-force-field
 ## Задание
 
 В качестве задания к [лекции «Моноиды»](https://youtu.be/C0uRL-CMk1Q) требуется
-реализовать экземпляр класса типов `Monoid` для [типа `Bounds`](https://github.com/cmc-haskell-2017/demo-force-field/blob/master/src/ForceField.hs#L54-L57) и [функцию `bounds`](https://github.com/cmc-haskell-2017/demo-force-field/blob/master/src/ForceField.hs#L59-L61).
+реализовать экземпляр класса типов `Monoid` для [типа `Bounds`](https://github.com/cmc-haskell-2017/demo-force-field/blob/master/src/ForceField.hs#L58-L61) и [функцию `bounds`](https://github.com/cmc-haskell-2017/demo-force-field/blob/master/src/ForceField.hs#L63-L65).
 
 Как только вы реализуете эту функцию, область моделирования будет автоматически масштабироваться, чтобы захватывать все объекты.
